@@ -122,12 +122,10 @@
    * PersonalStore — configurações pessoais (não compartilhadas)
    * Cada usuário tem seus próprios valores; não entra no export
    * de config da equipe (CONFIG_KEYS).
-   * Inclui: cores por servidor, detratores, destaques (futuro).
    * =======================================================*/
   const PersonalStore = (() => {
     const STORAGE_KEY = 'smax_personal_prefs';
     const defaults = {
-      myDestaque:  [],  // [{ id, name }] — usuários em destaque (pessoal)
       themeMode:   'dark', // 'dark' | 'light'
       personalSignatures: [],  // [{ name: string, html: string }]
     };
@@ -139,15 +137,6 @@
         const saved = GM_getValue(STORAGE_KEY);
         if (!saved) return;
         const parsed = JSON.parse(saved);
-        // One-time migration from old key name
-        if (Array.isArray(parsed.myDetratores) && !parsed.myDestaque) {
-          parsed.myDestaque = parsed.myDetratores;
-          delete parsed.myDetratores;
-        }
-        // Migration: string[] → [{id, name}]
-        if (Array.isArray(parsed.myDestaque) && parsed.myDestaque.length > 0 && typeof parsed.myDestaque[0] === 'string') {
-          parsed.myDestaque = parsed.myDestaque.map(name => ({ id: '', name }));
-        }
         Object.assign(state, defaults, parsed || {});
       } catch (err) {
         console.warn('[SMAX] PersonalStore load error:', err);
@@ -797,37 +786,12 @@
 .smax-toggle-sw input:checked + .smax-toggle-track { background:var(--sp-primary); }
 .smax-toggle-track::before { content:''; position:absolute; width:16px; height:16px; border-radius:50%; background:#fff; top:3px; left:3px; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.3); }
 .smax-toggle-sw input:checked + .smax-toggle-track::before { transform:translateX(16px); }
-.smax-det-item { display:flex; align-items:center; gap:8px; background:var(--sp-danger-bg); border:1px solid var(--sp-danger-border); border-radius:var(--sp-r-sm); padding:6px 10px; }
-.smax-det-item span { flex:1; font-size:12px; color:var(--sp-danger-text); }
-.smax-det-item button { font-size:10px; padding:2px 8px; border-radius:var(--sp-r-sm); border:1px solid var(--sp-danger-border); background:transparent; color:var(--sp-danger-text); cursor:pointer; }
 .smax-team-item { background:var(--sp-surface) !important; border-color:var(--sp-border) !important; }
 .smax-team-item strong { color:var(--sp-text) !important; }
 .smax-team-item .smax-team-prio-info { color:var(--sp-text-muted) !important; }
 .smax-team-edit-btn { color:var(--sp-text) !important; background:var(--sp-surface-2) !important; border-color:var(--sp-border) !important; }
 .smax-team-del-btn { color:var(--sp-danger-text) !important; background:var(--sp-danger-bg) !important; border-color:var(--sp-danger-border) !important; }
 #smax-settings input[type="text"], #smax-settings input[type="number"], #smax-settings textarea { background:var(--sp-input-bg) !important; border-color:var(--sp-input-border) !important; color:var(--sp-input-text) !important; }
-
-/* ============================================================
-   TEMPLATES MODAL
-   ============================================================ */
-#smax-tpl-box { background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:var(--sp-r-lg); width:100%; max-width:680px; max-height:85vh; display:flex; flex-direction:column; box-shadow:var(--sp-shadow); overflow:hidden; font-family:'Metric-Regular','Helvetica Neue',Helvetica,Arial,sans-serif; color:var(--sp-text); }
-#smax-tpl-box h3 { margin:0; padding:14px 18px; font-size:15px; font-weight:600; color:var(--sp-header-fg); background:var(--sp-header-bg); border-bottom:2px solid var(--sp-accent); }
-.smax-tpl-tabs { display:flex; border-bottom:1px solid var(--sp-border); background:var(--sp-surface-2); }
-.smax-tpl-tab { flex:1; padding:9px; text-align:center; font-size:12px; font-weight:600; color:var(--sp-text-muted); cursor:pointer; transition:color .15s, background .15s; }
-.smax-tpl-tab.active { color:var(--sp-accent); background:var(--sp-primary-bg); border-bottom:2px solid var(--sp-accent); }
-.smax-tpl-list { flex:1; overflow-y:auto; padding:10px; background:var(--sp-surface); }
-.smax-tpl-item { padding:10px 12px; border-radius:var(--sp-r-md); border:1px solid var(--sp-border); margin-bottom:7px; background:var(--sp-surface-2); cursor:pointer; transition:background .15s, border-color .15s; }
-.smax-tpl-item:hover { background:var(--sp-primary-bg); border-color:var(--sp-accent); }
-.smax-tpl-item-title { font-size:13px; font-weight:600; color:var(--sp-text); }
-.smax-tpl-item-preview { font-size:11px; color:var(--sp-text-muted); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.smax-tpl-item-actions { display:flex; gap:6px; margin-top:6px; }
-.smax-tpl-item-actions button { font-size:10px; padding:3px 8px; border-radius:var(--sp-r-sm); border:none; cursor:pointer; }
-.smax-tpl-edit-btn { background:var(--sp-primary-bg); color:var(--sp-accent); border:1px solid var(--sp-accent); }
-.smax-tpl-del-btn { background:var(--sp-danger-bg); color:var(--sp-danger-text); border:1px solid var(--sp-danger-border); }
-.smax-tpl-add-btn { display:block; width:100%; padding:8px; text-align:center; font-size:12px; color:var(--sp-accent); background:var(--sp-primary-bg); border:1px dashed var(--sp-accent); border-radius:var(--sp-r-sm); cursor:pointer; margin-top:4px; }
-.smax-tpl-footer { display:flex; gap:8px; padding:10px 12px; border-top:1px solid var(--sp-border); justify-content:flex-end; background:var(--sp-surface-2); }
-.smax-tpl-footer button { font-size:12px; padding:7px 16px; border-radius:var(--sp-r-sm); cursor:pointer; }
-.smax-tpl-close-btn { background:var(--sp-surface-2); color:var(--sp-text-muted); border:1px solid var(--sp-border); }
 
 /* misc */
 .smax-absent-wrapper { display:inline-flex; align-items:center; gap:4px; cursor:pointer; font-size:12px; white-space:nowrap; }
@@ -878,22 +842,6 @@
 [data-smax-theme="light"] .smax-triage-status-dropdown[data-status="RequestStatusPendingApproval"],
 [data-smax-theme="light"] .smax-triage-status-dropdown[data-status="RequestStatusPendingChange"] { background-color:#ffedd5 !important; color:#a3490a !important; border-color:#f3c79a !important; }
 [data-smax-theme="light"] .smax-triage-status-dropdown[data-status="RequestStatusClassify"] { background-color:#ede4fb !important; color:#6d2f9c !important; border-color:#d2bcef !important; }
-
-/* ============================================================
-   PATCH — regras funcionais ausentes no refino
-   ============================================================ */
-
-/* Template modal — Triage HUD (body-level overlay) */
-#smax-tpl-modal { position:fixed; inset:0; z-index:9999998; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; }
-#smax-tpl-modal.open { display:flex; }
-
-/* Template form (dentro de #smax-tpl-box) */
-.smax-tpl-form { display:flex; flex-direction:column; gap:8px; padding:10px 12px; border-top:1px solid var(--sp-border); }
-.smax-tpl-form-title { width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid var(--sp-input-border); border-radius:var(--sp-r-sm); background:var(--sp-input-bg); color:var(--sp-input-text); font-size:13px; font-family:inherit; }
-.smax-tpl-form-html { width:100%; box-sizing:border-box; min-height:100px; padding:7px 10px; border:1px solid var(--sp-input-border); border-radius:var(--sp-r-sm); background:var(--sp-input-bg); color:var(--sp-input-text); font-size:12px; font-family:inherit; resize:vertical; }
-.smax-tpl-form-actions { display:flex; gap:6px; justify-content:flex-end; }
-.smax-tpl-cancel-btn { font-size:12px; padding:6px 14px; border-radius:var(--sp-r-sm); border:1px solid var(--sp-border); background:var(--sp-surface-2); color:var(--sp-text-muted); cursor:pointer; }
-.smax-tpl-save-btn { font-size:12px; padding:6px 14px; border-radius:var(--sp-r-sm); border:none; background:var(--sp-accent); color:var(--sp-on-accent); font-weight:600; cursor:pointer; }
 
 /* ============================================================
    TRIAGE TOOLBAR & FIELD PICKER (shared CSS classes)
@@ -3453,8 +3401,6 @@
       { id: 'geral',         icon: '⚙️',  label: 'Geral' },
       { id: 'equipes',       icon: '👥',  label: 'Equipes' },
       { id: 'especialistas', icon: '👤',  label: 'Especialistas' },
-      { id: 'destaque',      icon: '⭐',  label: 'Destaque' },
-      { id: 'templates',     icon: '📋',  label: 'Scripts' },
       { id: 'triagem',       icon: '🎯',  label: 'Triagem' },
       { id: 'assinaturas',   icon: '✒️',  label: 'Assinaturas' },
     ];
@@ -4267,99 +4213,6 @@
         </div>`;
     };
 
-    const renderSectionDestaque = () => `
-      <div class="smax-sp-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <div>
-            <div class="smax-sp-section-title" style="margin-bottom:2px;">⭐ Usuários Destaque</div>
-            <div class="smax-sp-muted">Lista pessoal — não compartilhada com a equipe. A linha inteira do chamado é destacada na fila.</div>
-          </div>
-          <button type="button" id="smax-det-add-btn" style="font-size:12px;padding:5px 12px;border-radius:6px;border:1px solid var(--sp-border);background:var(--sp-surface-2);color:var(--sp-text);cursor:pointer;">+ Adicionar</button>
-        </div>
-        <div id="smax-det-list" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;margin-bottom:4px;">
-          ${(personal.myDestaque || []).length === 0
-            ? `<div style="font-size:12px;color:var(--sp-text-dim);text-align:center;padding:24px;">Nenhum usuário destaque cadastrado.</div>`
-            : (personal.myDestaque || []).map((d, i) => `
-              <div class="smax-det-item">
-                <span>⭐ ${Utils.escapeHtml(typeof d === 'string' ? d : d.name || '')}${d.id ? ` <span style="font-size:9px;color:var(--sp-text-dim);">(${Utils.escapeHtml(d.id)})</span>` : ''}</span>
-                <button class="smax-det-del" data-idx="${i}">✕</button>
-              </div>`).join('')
-          }
-        </div>
-        <div id="smax-det-input-row" style="display:none;margin-top:8px;position:relative;">
-          <input type="text" id="smax-det-search" placeholder="Buscar por nome..." style="width:100%;padding:7px 10px;border-radius:6px;font-size:12px;box-sizing:border-box;">
-          <div id="smax-det-search-results" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--sp-surface-2);border:1px solid var(--sp-input-border);border-top:none;border-radius:0 0 8px 8px;z-index:200;box-shadow:0 12px 24px rgba(0,0,0,.5);"></div>
-        </div>
-      </div>`;
-
-    const renderSectionTemplates = () => `
-      <div style="display:flex;flex-direction:column;gap:12px;">
-        <div class="smax-sp-card">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
-            <div class="smax-sp-section-title" style="margin-bottom:0;">📋 Scripts de Respostas</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button id="smax-tpl-clip-btn" title="Colar HTML do clipboard (OneNote, Word, etc.)" style="padding:6px 12px;border-radius:6px;border:1px solid var(--sp-border);background:var(--sp-surface);color:var(--sp-text);font-size:11px;cursor:pointer;">📎 Do clipboard</button>
-              <button id="smax-tpl-export-btn" style="padding:6px 12px;border-radius:6px;border:1px solid var(--sp-border);background:var(--sp-surface);color:var(--sp-text);font-size:11px;cursor:pointer;">📤 Exportar JSON</button>
-              <button id="smax-tpl-import-btn" style="padding:6px 12px;border-radius:6px;border:1px solid var(--sp-border);background:var(--sp-surface);color:var(--sp-text);font-size:11px;cursor:pointer;">📥 Importar JSON</button>
-              <button id="smax-tpl-sync-btn" title="Importar scripts do Gerenciador de Chamados" style="padding:6px 12px;border-radius:6px;border:1px solid var(--sp-border);background:var(--sp-surface);color:var(--sp-text);font-size:11px;cursor:pointer;">☁️ Do Gerenciador</button>
-              <button id="smax-tpl-new-btn" style="padding:6px 14px;border-radius:6px;border:none;background:var(--sp-primary);color:var(--sp-on-accent);font-size:12px;font-weight:600;cursor:pointer;">+ Novo</button>
-            </div>
-          </div>
-          <div style="display:flex;gap:0;border-bottom:1px solid var(--sp-border);margin-bottom:10px;">
-            <button class="smax-tpl-sp-tab active" data-disc="false" style="padding:7px 16px;border:none;border-bottom:2px solid var(--sp-primary);background:none;color:var(--sp-primary);font-size:12px;font-weight:600;cursor:pointer;">Solução</button>
-            <button class="smax-tpl-sp-tab" data-disc="true" style="padding:7px 16px;border:none;border-bottom:2px solid transparent;background:none;color:var(--sp-text-muted);font-size:12px;cursor:pointer;">Discussão</button>
-          </div>
-          <div id="smax-tpl-sp-list" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;min-height:40px;">
-            <div style="color:var(--sp-text-dim);font-size:12px;text-align:center;padding:20px;">Carregando...</div>
-          </div>
-        </div>
-        <div id="smax-tpl-sp-form" class="smax-sp-card" style="display:none;flex-direction:column;gap:10px;">
-          <div class="smax-sp-section-title" style="margin-bottom:4px;">✏️ <span id="smax-tpl-sp-form-title-lbl">Novo script</span></div>
-          <input id="smax-tpl-sp-title" type="text" placeholder="Título do script..." style="padding:8px 10px;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;">
-          <div class="smax-sp-muted">Conteúdo (aceita HTML. Cole diretamente do OneNote, Word ou qualquer editor rico):</div>
-          <textarea id="smax-tpl-sp-body" placeholder="Cole o conteúdo aqui ou escreva HTML..." style="min-height:140px;resize:vertical;padding:8px 10px;border-radius:6px;font-size:12px;font-family:'Segoe UI',system-ui,sans-serif;width:100%;box-sizing:border-box;line-height:1.5;"></textarea>
-          <div id="smax-tpl-sp-disc-fields" style="display:none;flex-direction:column;gap:8px;">
-            <div>
-              <label style="font-size:11px;color:var(--sp-text-muted);display:block;margin-bottom:4px;">Para (opcional)</label>
-              <select id="smax-tpl-sp-commentTo" style="width:100%;padding:8px 10px;border-radius:6px;font-size:13px;box-sizing:border-box;min-height:38px;line-height:1.4;">
-                <option value="">(Não definido)</option>
-                <option value="Agent">Agente</option>
-                <option value="User">Usuário</option>
-                <option value="Vendor">Fornecedor</option>
-                <option value="ExternalServiceDesk">Central Externa</option>
-                <option value="Stakeholder">Participantes</option>
-              </select>
-            </div>
-            <div>
-              <label style="font-size:11px;color:var(--sp-text-muted);display:block;margin-bottom:4px;">Objetivo (opcional)</label>
-              <select id="smax-tpl-sp-purposeCode" style="width:100%;padding:8px 10px;border-radius:6px;font-size:13px;box-sizing:border-box;min-height:38px;line-height:1.4;">
-                <option value="">(Não definido)</option>
-                <option value="StatusUpdate">Atualização de status</option>
-                <option value="FollowUp">Acompanhamento</option>
-                <option value="Resolution">Resolução</option>
-                <option value="RequestMoreInformation">Solicitar mais informações</option>
-                <option value="ProvideInformation">Fornecer informações</option>
-                <option value="Diagnosis">Diagnóstico</option>
-                <option value="SCCDComment_c">Comentário para SCCD</option>
-              </select>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
-            <button id="smax-tpl-sp-cancel" style="padding:7px 14px;border-radius:6px;border:1px solid var(--sp-border);background:var(--sp-surface);color:var(--sp-text-muted);font-size:12px;cursor:pointer;">Cancelar</button>
-            <button id="smax-tpl-sp-save" style="padding:7px 18px;border-radius:6px;border:none;background:var(--sp-primary);color:var(--sp-on-accent);font-size:12px;font-weight:600;cursor:pointer;">Salvar script</button>
-          </div>
-        </div>
-        <div id="smax-tpl-import-area" class="smax-sp-card" style="display:none;flex-direction:column;gap:8px;">
-          <div class="smax-sp-section-title" style="margin-bottom:4px;">📥 Importar scripts (JSON)</div>
-          <div class="smax-sp-muted">Cole o JSON exportado anteriormente:</div>
-          <textarea id="smax-tpl-import-json-input" style="min-height:100px;resize:vertical;padding:8px 10px;border-radius:6px;font-size:11px;font-family:monospace;width:100%;box-sizing:border-box;"></textarea>
-          <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button id="smax-tpl-import-cancel" style="padding:6px 12px;border-radius:6px;border:1px solid var(--sp-border);background:var(--sp-surface);color:var(--sp-text-muted);font-size:12px;cursor:pointer;">Cancelar</button>
-            <button id="smax-tpl-import-confirm" style="padding:6px 14px;border-radius:6px;border:none;background:var(--sp-primary);color:var(--sp-on-accent);font-size:12px;font-weight:600;cursor:pointer;">Importar</button>
-          </div>
-        </div>
-      </div>`;
-
     const renderSectionTriagem = () => `
       <div style="display:flex;flex-direction:column;gap:14px;">
         <div class="smax-sp-card">
@@ -4476,8 +4329,6 @@
         case 'geral':         return renderSectionGeral();
         case 'equipes':       return renderSectionEquipes();
         case 'especialistas': return renderSectionEspecialistas();
-        case 'destaque':      return renderSectionDestaque();
-        case 'templates':     return renderSectionTemplates();
         case 'triagem':       return renderSectionTriagem();
         case 'assinaturas':   return renderSectionAssinaturas();
         default:              return renderSectionGeral();
@@ -4643,339 +4494,6 @@
       });
     };
 
-    const wireDestaqueEvents = () => {
-      if (!container) return;
-      const detAddBtn   = container.querySelector('#smax-det-add-btn');
-      const detInputRow = container.querySelector('#smax-det-input-row');
-      const detSearch   = container.querySelector('#smax-det-search');
-      const detResults  = container.querySelector('#smax-det-search-results');
-      if (detSearch && detResults) {
-        let detSearchTimeout = null;
-        // Cache local de TODAS as pessoas (sem filtro de grupo) — carregado 1x sob demanda
-        let allPeopleCache = null;
-        let allPeopleLoading = null;
-        const ensureAllPeople = () => {
-          if (allPeopleCache) return Promise.resolve(allPeopleCache);
-          if (allPeopleLoading) return allPeopleLoading;
-          allPeopleLoading = (async () => {
-            const map = new Map();
-            let skip = 0;
-            const pageSize = 200;
-            let total = Infinity;
-            while (skip < total) {
-              try {
-                const data = await ApiClient.request('ems/Person', {
-                  method: 'GET',
-                  searchParams: { layout: 'Id,Name,Upn,Email', size: String(pageSize), skip: String(skip), order: 'Name asc', meta: 'totalCount' },
-                  includeTenantParam: true,
-                });
-                const entities = data?.entities || [];
-                if (data?.meta?.total_count != null) total = data.meta.total_count;
-                else if (!entities.length) break;
-                for (const ent of entities) {
-                  if (!ent || typeof ent !== 'object') continue;
-                  const props = ent.properties || {};
-                  const id = props.Id != null ? String(props.Id) : '';
-                  if (!id) continue;
-                  const name = (props.Name || '').toString().trim();
-                  if (!name) continue;
-                  map.set(id, { id, name, upn: (props.Upn || '').toString().trim() });
-                }
-                skip += pageSize;
-                if (entities.length < pageSize) break;
-              } catch (err) {
-                console.warn('[SMAX] Destaque allPeople page error:', err);
-                break;
-              }
-            }
-            allPeopleCache = map;
-            console.log('[SMAX] Destaque allPeopleCache loaded:', map.size);
-            return map;
-          })();
-          allPeopleLoading.finally(() => { allPeopleLoading = null; });
-          return allPeopleLoading;
-        };
-        // Botão "Adicionar" — mostra input e inicia pré-carregamento
-        if (detAddBtn) detAddBtn.addEventListener('click', () => {
-          detInputRow.style.display = 'block';
-          detSearch?.focus();
-          ensureAllPeople();
-        });
-        const renderSearchResults = () => {
-          const q = (detSearch.value || '').trim().toLowerCase();
-          if (!q || q.length < 2) { detResults.style.display = 'none'; return; }
-          if (!allPeopleCache) {
-            detResults.innerHTML = '<div style="padding:8px;color:var(--sp-text-muted);font-size:11px;">Carregando lista de pessoas...</div>';
-            detResults.style.display = 'block';
-            return;
-          }
-          const existingIds = new Set((personal.myDestaque || []).map(d => d.id).filter(Boolean));
-          const matches = [...allPeopleCache.values()]
-            .filter(p => !existingIds.has(p.id) && ((p.name || '').toLowerCase().includes(q) || (p.upn || '').toLowerCase().includes(q)))
-            .slice(0, 12);
-          if (!matches.length) {
-            detResults.innerHTML = '<div style="padding:8px;color:var(--sp-text-muted);font-size:11px;">Nenhuma pessoa encontrada.</div>';
-          } else {
-            detResults.innerHTML = matches.map(p => `
-              <div class="smax-det-result" data-id="${Utils.escapeHtml(p.id)}" data-name="${Utils.escapeHtml(p.name)}"
-                style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--sp-border);color:var(--sp-text);transition:background .1s;">
-                ${Utils.escapeHtml(p.name)}${p.upn ? ` <span style="font-size:10px;color:var(--sp-text-dim);">(${Utils.escapeHtml(p.upn)})</span>` : ''}
-              </div>`).join('');
-            detResults.querySelectorAll('.smax-det-result').forEach(item => {
-              item.addEventListener('mouseenter', () => { item.style.background = 'var(--sp-primary-bg)'; });
-              item.addEventListener('mouseleave', () => { item.style.background = ''; });
-              item.addEventListener('click', () => {
-                if (!Array.isArray(personal.myDestaque)) personal.myDestaque = [];
-                personal.myDestaque.push({ id: item.dataset.id, name: item.dataset.name });
-                savePersonal();
-                renderPanel();
-              });
-            });
-          }
-          detResults.style.display = 'block';
-        };
-        detSearch.addEventListener('input', () => {
-          clearTimeout(detSearchTimeout);
-          detSearchTimeout = setTimeout(() => {
-            if (!allPeopleCache) {
-              renderSearchResults(); // mostra "Carregando..."
-              ensureAllPeople().then(renderSearchResults);
-            } else {
-              renderSearchResults();
-            }
-          }, 200);
-        });
-        detSearch.addEventListener('blur', () => setTimeout(() => { detResults.style.display = 'none'; }, 250));
-      }
-      container.querySelectorAll('.smax-det-del').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const idx = parseInt(btn.dataset.idx, 10);
-          if (!isNaN(idx)) { personal.myDestaque.splice(idx, 1); savePersonal(); renderPanel(); }
-        });
-      });
-    };
-
-    const wireTemplatesEvents = () => {
-      if (!container) return;
-      let tplActiveDisc = false;
-      let tplEditingIdx = null;
-
-      const getTplList = () => container.querySelector('#smax-tpl-sp-list');
-      const getForm    = () => container.querySelector('#smax-tpl-sp-form');
-      const getImport  = () => container.querySelector('#smax-tpl-import-area');
-
-      const renderTplList = () => {
-        const listEl = getTplList();
-        if (!listEl) return;
-        const items = Templates.load(tplActiveDisc);
-        if (!items.length) {
-          listEl.innerHTML = `<div style="color:var(--sp-text-dim);font-size:12px;text-align:center;padding:20px;">Nenhum script. Clique em "+ Novo" para criar.</div>`;
-          return;
-        }
-        listEl.innerHTML = items.map((t, i) => `
-          <div class="smax-tpl-sp-item" data-idx="${i}" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--sp-border);border-radius:8px;background:var(--sp-surface-2);cursor:pointer;transition:border-color .15s,background .15s;">
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;font-weight:600;color:var(--sp-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${Utils.escapeHtml(t.title)}</div>
-              <div style="font-size:11px;color:var(--sp-text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${Utils.escapeHtml((t.html||'').replace(/<[^>]+>/g,' ').trim().slice(0,80))}</div>
-            </div>
-            <button class="smax-tpl-sp-edit-btn" data-idx="${i}" title="Editar" style="flex-shrink:0;padding:4px 8px;border-radius:5px;border:1px solid var(--sp-border);background:none;color:var(--sp-text-muted);font-size:11px;cursor:pointer;">✏️</button>
-            <button class="smax-tpl-sp-del-btn" data-idx="${i}" title="Excluir" style="flex-shrink:0;padding:4px 8px;border-radius:5px;border:1px solid var(--sp-danger-border);background:var(--sp-danger-bg);color:var(--sp-danger-text);font-size:11px;cursor:pointer;">✕</button>
-          </div>
-        `).join('');
-
-        listEl.querySelectorAll('.smax-tpl-sp-edit-btn').forEach(btn => {
-          btn.addEventListener('click', (e) => { e.stopPropagation(); openTplForm(parseInt(btn.dataset.idx, 10)); });
-        });
-        listEl.querySelectorAll('.smax-tpl-sp-del-btn').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const idx = parseInt(btn.dataset.idx, 10);
-            const arr = Templates.load(tplActiveDisc);
-            if (confirm(`Excluir "${arr[idx]?.title}"?`)) {
-              arr.splice(idx, 1);
-              Templates.save(tplActiveDisc, arr);
-              renderTplList();
-            }
-          });
-        });
-      };
-
-      const openTplForm = (idx = null) => {
-        tplEditingIdx = idx;
-        const formEl = getForm();
-        if (!formEl) return;
-        const arr = Templates.load(tplActiveDisc);
-        const tpl = idx !== null ? arr[idx] : null;
-        formEl.querySelector('#smax-tpl-sp-form-title-lbl').textContent = idx !== null ? 'Editar script' : 'Novo script';
-        formEl.querySelector('#smax-tpl-sp-title').value = tpl?.title || '';
-        formEl.querySelector('#smax-tpl-sp-body').value  = tpl?.html  || '';
-        // Campos extras de discussão
-        const discFields = formEl.querySelector('#smax-tpl-sp-disc-fields');
-        if (discFields) {
-          discFields.style.display = tplActiveDisc ? 'flex' : 'none';
-          const commentToSel = formEl.querySelector('#smax-tpl-sp-commentTo');
-          const purposeSel = formEl.querySelector('#smax-tpl-sp-purposeCode');
-          if (commentToSel) commentToSel.value = tpl?.commentTo || '';
-          if (purposeSel) purposeSel.value = tpl?.purposeCode || '';
-        }
-        formEl.style.display = 'flex';
-        formEl.querySelector('#smax-tpl-sp-title').focus();
-        // Hide import area
-        const imp = getImport(); if (imp) imp.style.display = 'none';
-      };
-
-      const closeTplForm = () => {
-        tplEditingIdx = null;
-        const formEl = getForm(); if (formEl) formEl.style.display = 'none';
-      };
-
-      const saveTplForm = () => {
-        const formEl = getForm(); if (!formEl) return;
-        const title = (formEl.querySelector('#smax-tpl-sp-title').value || '').trim();
-        const html  = (formEl.querySelector('#smax-tpl-sp-body').value  || '').trim();
-        if (!title) { alert('Informe um título para o script.'); return; }
-        const entry = { title, html };
-        if (tplActiveDisc) {
-          const commentTo = formEl.querySelector('#smax-tpl-sp-commentTo')?.value || '';
-          const purposeCode = formEl.querySelector('#smax-tpl-sp-purposeCode')?.value || '';
-          if (commentTo) entry.commentTo = commentTo;
-          if (purposeCode) entry.purposeCode = purposeCode;
-        }
-        const arr = Templates.load(tplActiveDisc);
-        if (tplEditingIdx !== null) arr[tplEditingIdx] = entry;
-        else arr.push(entry);
-        Templates.save(tplActiveDisc, arr);
-        closeTplForm();
-        renderTplList();
-      };
-
-      // Tabs
-      container.querySelectorAll('.smax-tpl-sp-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          tplActiveDisc = tab.dataset.disc === 'true';
-          container.querySelectorAll('.smax-tpl-sp-tab').forEach(t => {
-            const isActive = t === tab;
-            t.style.borderBottomColor  = isActive ? 'var(--sp-primary)' : 'transparent';
-            t.style.color = isActive ? 'var(--sp-primary)' : 'var(--sp-text-muted)';
-            t.style.fontWeight = isActive ? '600' : '400';
-            if (isActive) t.classList.add('active'); else t.classList.remove('active');
-          });
-          closeTplForm();
-          renderTplList();
-        });
-      });
-
-      // New button
-      container.querySelector('#smax-tpl-new-btn')?.addEventListener('click', () => openTplForm(null));
-
-      // Form buttons
-      container.querySelector('#smax-tpl-sp-save')?.addEventListener('click', saveTplForm);
-      container.querySelector('#smax-tpl-sp-cancel')?.addEventListener('click', closeTplForm);
-
-      // Paste from clipboard (OneNote / Word rich HTML)
-      container.querySelector('#smax-tpl-clip-btn')?.addEventListener('click', async () => {
-        openTplForm(null);
-        const bodyEl = container.querySelector('#smax-tpl-sp-body');
-        if (!bodyEl) return;
-        try {
-          // Tenta ler HTML do clipboard (Chrome 86+, Firefox 127+)
-          const items = await navigator.clipboard.read();
-          for (const item of items) {
-            if (item.types.includes('text/html')) {
-              const blob = await item.getType('text/html');
-              const html = await blob.text();
-              bodyEl.value = html;
-              return;
-            }
-          }
-          // Fallback: plain text
-          const text = await navigator.clipboard.readText();
-          bodyEl.value = text;
-        } catch {
-          // Fallback silencioso: usuário pode colar manualmente no campo
-          bodyEl.placeholder = 'Cole o conteúdo aqui com Ctrl+V...';
-          bodyEl.focus();
-        }
-      });
-
-      // Sync from Gerenciador de Chamados (Supabase)
-      container.querySelector('#smax-tpl-sync-btn')?.addEventListener('click', async () => {
-        const btn = container.querySelector('#smax-tpl-sync-btn');
-        const origLabel = btn?.textContent;
-        if (btn) { btn.disabled = true; btn.textContent = '⏳ Importando...'; }
-        try {
-          const equipeId = await GM_getValue('smax_gerenciador_equipe_id', null);
-          let url = `${SMAX_SB_URL}/rest/v1/scripts_customizados?select=nome,conteudo_bruto&deletado=eq.false&order=nome`;
-          if (equipeId) url += `&equipe_id=eq.${equipeId}`;
-          const resp = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${SMAX_SB_KEY}`, 'apikey': SMAX_SB_KEY, 'Accept': 'application/json' }
-          });
-          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-          const scripts = await resp.json();
-          if (!Array.isArray(scripts)) throw new Error('Resposta inesperada da API');
-          const arr = Templates.load(tplActiveDisc);
-          let added = 0;
-          scripts.forEach(s => {
-            if (s.nome && s.conteudo_bruto && !arr.find(t => t.title === s.nome)) {
-              arr.push({ title: s.nome, html: s.conteudo_bruto });
-              added++;
-            }
-          });
-          Templates.save(tplActiveDisc, arr);
-          renderTplList();
-          alert(`✅ ${added} script(s) importado(s). ${scripts.length - added} já existiam.`);
-        } catch(e) {
-          alert('Erro ao importar do Gerenciador: ' + e.message + (e.message.includes('equipe') ? '\n\nDica: abra o Gerenciador de Chamados uma vez para sincronizar sua equipe.' : ''));
-        } finally {
-          if (btn) { btn.disabled = false; btn.textContent = origLabel; }
-        }
-      });
-
-      // Export JSON
-      container.querySelector('#smax-tpl-export-btn')?.addEventListener('click', () => {
-        const data = { sol: Templates.load(false), disc: Templates.load(true) };
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = 'smax_templates.json';
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
-      });
-
-      // Import JSON — show textarea
-      container.querySelector('#smax-tpl-import-btn')?.addEventListener('click', () => {
-        const imp = getImport(); if (!imp) return;
-        imp.style.display = imp.style.display === 'flex' ? 'none' : 'flex';
-        closeTplForm();
-      });
-      container.querySelector('#smax-tpl-import-cancel')?.addEventListener('click', () => {
-        const imp = getImport(); if (imp) imp.style.display = 'none';
-      });
-      container.querySelector('#smax-tpl-import-confirm')?.addEventListener('click', () => {
-        const raw = (container.querySelector('#smax-tpl-import-json-input')?.value || '').trim();
-        if (!raw) return;
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            // Format: array of {title, html}
-            const arr = Templates.load(tplActiveDisc);
-            parsed.forEach(t => { if (t.title) arr.push(t); });
-            Templates.save(tplActiveDisc, arr);
-          } else if (parsed.sol || parsed.disc) {
-            // Format: {sol:[...], disc:[...]}
-            if (Array.isArray(parsed.sol))  { const s = Templates.load(false); parsed.sol.forEach(t => s.push(t));  Templates.save(false, s); }
-            if (Array.isArray(parsed.disc)) { const d = Templates.load(true);  parsed.disc.forEach(t => d.push(t)); Templates.save(true,  d); }
-          }
-          const imp = getImport(); if (imp) imp.style.display = 'none';
-          renderTplList();
-          alert('Scripts importados com sucesso!');
-        } catch(e) { alert('JSON inválido: ' + e.message); }
-      });
-
-      // Initial render
-      renderTplList();
-    };
-
     const wireTriagemEvents = () => {
       if (!container) return;
 
@@ -5061,8 +4579,6 @@
         case 'geral':         wireGeralEvents();         break;
         case 'equipes':       wireTeamEvents();          break;
         case 'especialistas': break;
-        case 'destaque':      wireDestaqueEvents();      break;
-        case 'templates':     wireTemplatesEvents();     break;
         case 'triagem':       wireTriagemEvents();       break;
         case 'assinaturas':   wireAssinaturasEvents();   break;
       }
@@ -6982,231 +6498,6 @@
   })();
 
   /* =========================================================
-   * Templates — respostas reutilizáveis (localStorage)
-   * =======================================================*/
-  const Templates = (() => {
-    const KEY_SOL  = 'smax_solutions_v2';
-    const KEY_DISC = 'smax_discussions_v2';
-
-    let _sharedSol = [], _sharedDisc = [];
-
-    const setSharedScripts = (sol, disc) => {
-      _sharedSol = Array.isArray(sol) ? sol : [];
-      _sharedDisc = Array.isArray(disc) ? disc : [];
-    };
-
-    // Normaliza os dois formatos: { title, html } (nosso) e { title, content } (Felipe)
-    const normalize = (arr) => arr.map(t => ({
-      title: t.title || '',
-      html: t.html || t.content || '',
-      commentTo: t.commentTo || '',
-      purposeCode: t.purposeCode || '',
-      _shared: t._shared || false,
-    }));
-
-    // Migra dados do localStorage para GM_storage (evita quota exceeded)
-    (() => {
-      for (const key of [KEY_SOL, KEY_DISC]) {
-        try {
-          const lsVal = localStorage.getItem(key);
-          if (lsVal) {
-            const parsed = JSON.parse(lsVal);
-            if (Array.isArray(parsed) && parsed.length > 0 && !GM_getValue(key, null)) {
-              GM_setValue(key, lsVal);
-            }
-            localStorage.removeItem(key);
-          }
-        } catch {}
-      }
-    })();
-
-    const load = (disc) => {
-      try { const r = JSON.parse(GM_getValue(disc ? KEY_DISC : KEY_SOL, '[]')); return normalize(Array.isArray(r) ? r : []); }
-      catch { return []; }
-    };
-
-    // Returns local + shared (shared appended, marked with _shared:true)
-    const loadAll = (disc) => {
-      const local = load(disc);
-      const shared = normalize(disc ? _sharedDisc : _sharedSol).map(s => ({ ...s, _shared: true }));
-      return [...local, ...shared];
-    };
-    // Salva sempre no formato { title, html } — usa GM_storage para evitar quota do localStorage
-    const save = (disc, arr) => GM_setValue(disc ? KEY_DISC : KEY_SOL, JSON.stringify(normalize(arr)));
-
-    const insertIntoEditor = (html) => {
-      const ck = getPageCKEditor();
-      if (ck) {
-        const instances = Object.values(ck.instances || {});
-        const focused = instances.find(i => i.focusManager?.hasFocus) || instances[instances.length - 1];
-        if (focused) { focused.insertHtml(html); return true; }
-      }
-      const ed = document.querySelector('.cke_editable:focus, [contenteditable="true"]:focus');
-      if (ed) { document.execCommand('insertHTML', false, html); return true; }
-      return false;
-    };
-
-    let modalEl = null;
-    let activeDisc = false;
-    let editingIdx = null;
-
-    const renderList = () => {
-      const list = loadAll(activeDisc);
-      const listEl = modalEl.querySelector('.smax-tpl-list');
-      if (!listEl) return;
-
-      listEl.innerHTML = list.length === 0
-        ? `<div class="smax-tpl-empty">Nenhum script. Clique em "+ Novo" para criar.</div>`
-        : list.map((t, i) => `
-          <div class="smax-tpl-item" data-idx="${i}" data-shared="${t._shared ? '1' : ''}">
-            <div class="smax-tpl-item-title">
-              ${Utils.escapeHtml(t.title)}
-              ${t._shared ? '<span style="margin-left:5px;font-size:9px;padding:1px 5px;border-radius:999px;background:var(--sp-primary-bg);color:var(--sp-accent);border:1px solid var(--sp-accent);vertical-align:middle;">☁️ Compartilhado</span>' : ''}
-            </div>
-            <div class="smax-tpl-item-preview">${Utils.escapeHtml((t.html || '').replace(/<[^>]+>/g, ' ').trim())}</div>
-            ${!t._shared ? `<div class="smax-tpl-item-actions">
-              <button class="smax-tpl-edit-btn" data-idx="${i}">Editar</button>
-              <button class="smax-tpl-del-btn"  data-idx="${i}">Excluir</button>
-            </div>` : ''}
-          </div>
-        `).join('');
-
-      // Event delegation — um único listener na lista, evita acúmulo a cada renderList()
-      if (!listEl._delegated) {
-        listEl._delegated = true;
-        listEl.addEventListener('click', (e) => {
-          const editBtn = e.target.closest('.smax-tpl-edit-btn');
-          if (editBtn) { openForm(parseInt(editBtn.dataset.idx, 10)); return; }
-          const delBtn = e.target.closest('.smax-tpl-del-btn');
-          if (delBtn) {
-            const idx = parseInt(delBtn.dataset.idx, 10);
-            const arr = load(activeDisc);
-            if (confirm(`Excluir "${arr[idx]?.title}"?`)) {
-              arr.splice(idx, 1);
-              save(activeDisc, arr);
-              renderList();
-              hideForm();
-            }
-            return;
-          }
-          const item = e.target.closest('.smax-tpl-item');
-          if (item) {
-            const idx = parseInt(item.dataset.idx, 10);
-            const tpl = loadAll(activeDisc)[idx];
-            if (!tpl) return;
-            if (!insertIntoEditor(tpl.html)) {
-              navigator.clipboard?.writeText(tpl.html).catch(() => {});
-              alert('Editor não encontrado — conteúdo copiado para a área de transferência.');
-            }
-            closeModal();
-          }
-        });
-      }
-    };
-
-    const openForm = (idx = null) => {
-      editingIdx = idx;
-      const arr = load(activeDisc);
-      const tpl = idx !== null ? arr[idx] : null;
-      const formEl = modalEl.querySelector('.smax-tpl-form');
-      const titleInput = formEl.querySelector('.smax-tpl-form-title');
-      const htmlInput  = formEl.querySelector('.smax-tpl-form-html');
-      titleInput.value = tpl ? tpl.title : '';
-      htmlInput.value  = tpl ? tpl.html  : '';
-      formEl.style.display = 'flex';
-      titleInput.focus();
-    };
-
-    const hideForm = () => {
-      editingIdx = null;
-      const formEl = modalEl?.querySelector('.smax-tpl-form');
-      if (formEl) formEl.style.display = 'none';
-    };
-
-    const saveForm = () => {
-      const formEl = modalEl.querySelector('.smax-tpl-form');
-      const title = (formEl.querySelector('.smax-tpl-form-title').value || '').trim();
-      const html  = (formEl.querySelector('.smax-tpl-form-html').value  || '').trim();
-      if (!title) { alert('Informe um título para o script.'); return; }
-      const arr = load(activeDisc);
-      if (editingIdx !== null) arr[editingIdx] = { title, html };
-      else arr.push({ title, html });
-      save(activeDisc, arr);
-      hideForm();
-      renderList();
-    };
-
-    const closeModal = () => {
-      if (modalEl) modalEl.classList.remove('open');
-    };
-
-    const openModal = (preferDisc = false) => {
-      if (!modalEl) buildModal();
-      activeDisc = preferDisc;
-      // Set active tab
-      modalEl.querySelectorAll('.smax-tpl-tab').forEach(t => {
-        t.classList.toggle('active', t.dataset.disc === String(preferDisc));
-      });
-      hideForm();
-      renderList();
-      modalEl.classList.add('open');
-    };
-
-    const buildModal = () => {
-      modalEl = document.createElement('div');
-      modalEl.id = 'smax-tpl-modal';
-      modalEl.innerHTML = `
-        <div id="smax-tpl-box">
-          <h3>📋 Scripts de Respostas</h3>
-          <div class="smax-tpl-tabs">
-            <div class="smax-tpl-tab active" data-disc="false">Solução</div>
-            <div class="smax-tpl-tab" data-disc="true">Discussão</div>
-          </div>
-          <div class="smax-tpl-list"></div>
-          <button class="smax-tpl-add-btn">+ Novo script</button>
-          <div class="smax-tpl-form" style="display:none;">
-            <input class="smax-tpl-form-title" type="text" placeholder="Título do script">
-            <textarea class="smax-tpl-form-html" placeholder="Conteúdo HTML (ou texto simples)"></textarea>
-            <div class="smax-tpl-form-actions">
-              <button class="smax-tpl-cancel-btn">Cancelar</button>
-              <button class="smax-tpl-save-btn">Salvar</button>
-            </div>
-          </div>
-          <div class="smax-tpl-footer">
-            <button class="smax-tpl-close-btn">Fechar</button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modalEl);
-
-      // Tabs
-      modalEl.querySelectorAll('.smax-tpl-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          activeDisc = tab.dataset.disc === 'true';
-          modalEl.querySelectorAll('.smax-tpl-tab').forEach(t => t.classList.toggle('active', t === tab));
-          hideForm();
-          renderList();
-        });
-      });
-
-      // Add button
-      modalEl.querySelector('.smax-tpl-add-btn').addEventListener('click', () => openForm(null));
-
-      // Form buttons
-      modalEl.querySelector('.smax-tpl-save-btn').addEventListener('click', saveForm);
-      modalEl.querySelector('.smax-tpl-cancel-btn').addEventListener('click', hideForm);
-      modalEl.querySelector('.smax-tpl-close-btn').addEventListener('click', closeModal);
-
-      // Click outside box to close
-      modalEl.addEventListener('click', (e) => { if (e.target === modalEl) closeModal(); });
-    };
-
-    const init = () => { /* botão externo removido — acesso via painel de configurações */ };
-
-    return { init, openModal, load, loadAll, save, insertIntoEditor, setSharedScripts };
-  })();
-
-  /* =========================================================
    * SharedConfig — configuração compartilhada via GitHub JSON
    * Busca um arquivo JSON público e distribui equipes e scripts
    * para toda a equipe sem banco de dados.
@@ -7248,14 +6539,6 @@
         log.push({ key: 'Equipes', detail: `${data.teams.length} equipe(s): ${data.teams.map(t => t.name || t.id).join(', ')}`, ok: true });
       } else if (data.teams !== undefined) {
         log.push({ key: 'Equipes', detail: 'recebido mas vazio', ok: false });
-      }
-
-      // --- Scripts ---
-      if (data.scripts) {
-        const solArr  = Array.isArray(data.scripts.sol)  ? data.scripts.sol  : [];
-        const discArr = Array.isArray(data.scripts.disc) ? data.scripts.disc : [];
-        Templates.setSharedScripts(solArr, discArr);
-        log.push({ key: 'Scripts', detail: `${solArr.length} solução, ${discArr.length} discussão`, ok: solArr.length > 0 || discArr.length > 0 });
       }
 
       // --- Chaves de config compartilhada ---
@@ -7367,22 +6650,10 @@
       refresh();                  // atualiza em segundo plano (sem await)
     };
 
-    // Scripts no formato compatível com o picker do TriageHUD (nome/conteudo_bruto)
-    const getScripts = (disc) => {
-      if (!data?.scripts) return [];
-      const arr = disc ? (data.scripts.disc || []) : (data.scripts.sol || []);
-      return arr.map(s => ({
-        ...s,
-        _shared: true,
-        nome: s.title || s.nome || '',
-        conteudo_bruto: s.html || s.conteudo_bruto || '',
-      }));
-    };
-
     const getStatus = () => ({ text: statusText, loading: isLoading, fetchedAt });
     const get = () => data;
 
-    return { init, refresh, get, getStatus, getScripts, onTeamsLoaded };
+    return { init, refresh, get, getStatus, onTeamsLoaded };
   })();
 
   /* =========================================================
@@ -7392,7 +6663,6 @@
     ThemeManager.init();
     SettingsPanel.init();
     TriageHUD.init();
-    Templates.init();
     SharedConfig.init();
     DataRepository.refreshQueueFromApi().catch(() => { });
     DataRepository.ensureSupportGroups().catch(() => { });
