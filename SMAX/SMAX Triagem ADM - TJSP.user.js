@@ -2472,13 +2472,10 @@
     const searchPeopleRemote = async (term) => {
       const q = (term || '').trim().replace(/'/g, '');
       if (!q || q.length < 3) return [];
-      // Quebra em palavras significativas (≥3 chars) e usa as 2 primeiras no filtro LIKE;
-      // busca em UPPER e lower para cobrir qualquer case no SMAX.
+      // Busca pela primeira palavra significativa (≥3 chars) para amplitude máxima.
       const words = q.split(/\s+/).filter(w => w.length >= 3);
-      const likeWords = words.length > 0 ? words.slice(0, 2) : [q];
-      const filterExpr = '(' + likeWords.map(w =>
-        `(Name like '%${w.toUpperCase()}%' or Name like '%${w.toLowerCase()}%')`
-      ).join(' and ') + ')';
+      const searchWord = (words[0] || q).toUpperCase();
+      const filterExpr = `(Name like '%${searchWord}%')`;
       try {
         const payload = await ApiClient.request('ems/Person', {
           method: 'GET',
