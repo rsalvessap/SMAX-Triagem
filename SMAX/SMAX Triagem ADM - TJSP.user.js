@@ -2473,11 +2473,12 @@
       const q = (term || '').trim().replace(/'/g, '');
       if (!q || q.length < 3) return [];
       // Quebra em palavras significativas (≥3 chars) e usa as 2 primeiras no filtro LIKE;
-      // buscar pelo nome completo como substring falha quando case/formatação divergem.
+      // busca em UPPER e lower para cobrir qualquer case no SMAX.
       const words = q.split(/\s+/).filter(w => w.length >= 3);
-      const filterExpr = words.length > 1
-        ? '(' + words.slice(0, 2).map(w => `Name like '%${w}%'`).join(' and ') + ')'
-        : `(Name like '%${words[0] || q}%')`;
+      const likeWords = words.length > 0 ? words.slice(0, 2) : [q];
+      const filterExpr = '(' + likeWords.map(w =>
+        `(Name like '%${w.toUpperCase()}%' or Name like '%${w.toLowerCase()}%')`
+      ).join(' and ') + ')';
       try {
         const payload = await ApiClient.request('ems/Person', {
           method: 'GET',
@@ -4065,6 +4066,14 @@
 
           searchInput.addEventListener('input', () => renderSearchResults(searchInput.value));
           searchInput.addEventListener('focus', () => renderSearchResults(searchInput.value));
+          // Enter adiciona o nome digitado diretamente (fallback quando busca não encontra)
+          searchInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              const name = (searchInput.value || '').trim();
+              if (name) addWorkerResult(name);
+            }
+          });
           // Hide on blur delayed to allow click
           searchInput.addEventListener('blur', () => setTimeout(() => { resultsEl.style.display = 'none'; }, 200));
         }
