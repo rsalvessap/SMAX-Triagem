@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SMAX Triagem ADM - TJSP
 // @namespace    https://github.com/rsalvessap/SMAX-Triagem
-// @version      1.0
+// @version      1.1
 // @description  [ADM] Módulo de triagem para o SMAX TJSP — versão de desenvolvimento
 // @author       rsalvessap
 // @match        https://suporte.tjsp.jus.br/saw/*
@@ -34,7 +34,7 @@
   const SMAX_SB_URL = 'https://rlcbmrjkojopipiwpktf.supabase.co';
   const SMAX_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsY2Jtcmprb2pvcGlwaXdwa3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3MzI0MTksImV4cCI6MjA5NDMwODQxOX0.Ha4xRbFvbgb2yO64ga3dV8KrNGRgbV7zWFXc5bYHdeQ';
 
-  const SMAX_TOOLKIT_VERSION = '1.0';
+  const SMAX_TOOLKIT_VERSION = '1.1';
   const SMAX_TENANT_ID = '213963628';
   console.log('%c[SMAX Triagem ADM] v' + SMAX_TOOLKIT_VERSION + ' carregado', 'color:#f59e0b;font-weight:bold;font-size:13px;');
 
@@ -2230,8 +2230,17 @@
       }
     };
 
+    const buildPeopleFilter = () => {
+      const ids = new Set();
+      try {
+        for (const t of TeamsConfig.getTeams()) {
+          if (Array.isArray(t.gseRules)) t.gseRules.forEach(r => { if (r.id) ids.add(r.id); });
+        }
+      } catch (_) { /* ignore */ }
+      if (!ids.size) return '(PersonToGroup[Id in (51642955)])';
+      return `(PersonToGroup[Id in (${[...ids].join(',')})])`;
+    };
     const basePeopleParams = {
-      filter: '(PersonToGroup[Id in (51642955)])',
       layout: 'Name,Avatar,Location,IsVIP,OrganizationalGroup,Upn,IsDeleted,FirstName,LastName,EmployeeNumber,Email,Title',
       meta: 'totalCount',
       order: 'Name asc',
@@ -2259,7 +2268,7 @@
     const fetchPeoplePage = async (skip = 0) => {
       const payload = await ApiClient.request('ems/Person', {
         method: 'GET',
-        searchParams: toQueryParams(basePeopleParams, { skip }),
+        searchParams: toQueryParams(basePeopleParams, { skip, filter: buildPeopleFilter() }),
         includeTenantParam: true
       });
       ingestPersonListPayload(payload);
@@ -2460,6 +2469,28 @@
       }));
     };
 
+    const searchPeopleRemote = async (term) => {
+      const q = (term || '').trim().replace(/'/g, '');
+      if (!q || q.length < 3) return [];
+      try {
+        const payload = await ApiClient.request('ems/Person', {
+          method: 'GET',
+          searchParams: {
+            filter: `(Name like '%${q}%')`,
+            layout: 'Name,Upn,Email,FirstName,LastName,Title',
+            size: '20',
+            skip: '0',
+            order: 'Name asc'
+          },
+          includeTenantParam: true
+        });
+        return (payload?.entities || [])
+          .filter(e => e?.entity_type === 'Person')
+          .map(e => { const p = e.properties || {}; return { id: p.Id != null ? String(p.Id) : '', name: (p.Name || '').toString().trim(), upn: (p.Upn || '').toString().trim() }; })
+          .filter(p => p.id && p.name);
+      } catch (err) { console.warn('[SMAX] Remote people search failed:', err); return []; }
+    };
+
     return {
       triageCache,
       getTriageQueueSnapshot: () => triageIds.slice(),
@@ -2467,6 +2498,7 @@
       ingestRequestListPayload,
       ingestPersonListPayload,
       ensurePeopleLoaded,
+      searchPeopleRemote,
       ensureSupportGroups,
       ensureRequestPayload,
       refreshQueueFromApi,
@@ -2795,7 +2827,22 @@
       // os comentários de sistema seriam removidos e o servidor rejeita com
       // "Comentários do sistema não podem ser alterados" (systemCommentsValidation).
       const allComments = [...existingComments, newComment];
-      const commentsJson = JSON.stringify({ Comment: allComments });
+      let commentsJson = JSON.stringify({ Comment: allComments });
+
+      // Se o payload exceder o limite seguro, reduzir tamanho substituindo base64 de imagens
+      // de comentários antigos por um pixel transparente (o SMAX trunca campos Comments muito grandes).
+      const COMMENTS_SAFE_LIMIT = 60000;
+      if (commentsJson.length > COMMENTS_SAFE_LIMIT) {
+        console.warn('[SMAX] postDiscussion: payload grande (' + commentsJson.length + ' chars), compactando imagens de comentários antigos.');
+        const TINY_PX = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        const slimExisting = existingComments.map(c => {
+          const body = c.CommentBody || '';
+          if (body.length < 500) return c;
+          return { ...c, CommentBody: body.replace(/data:image\/[^;]+;base64,[A-Za-z0-9+\/=]{100,}/g, TINY_PX) };
+        });
+        commentsJson = JSON.stringify({ Comment: [...slimExisting, newComment] });
+        console.info('[SMAX] postDiscussion: payload compactado →', commentsJson.length, 'chars');
+      }
       const discProps = { Id: String(ticketId), Comments: commentsJson };
       if (lastUpdateTime) discProps.LastUpdateTime = lastUpdateTime;
 
@@ -3909,8 +3956,10 @@
             });
           };
 
+          let _remoteTimer = null;
           const renderSearchResults = (term) => {
             const q = (term || '').trim().toUpperCase();
+            clearTimeout(_remoteTimer);
             resultsEl.style.display = q ? 'block' : 'none';
             if (!q) return;
 
@@ -3929,15 +3978,27 @@
               }
             }
 
-            if (!matches.length) {
-              resultsEl.innerHTML = '<div style="padding:4px;color:var(--sp-text-muted);font-size:10px;">Nenhum resultado.</div>';
-            } else {
-              resultsEl.innerHTML = matches.map(p => `
-                   <div class="smax-person-pick" data-name="${Utils.escapeHtml(p.name)}" style="padding:5px 8px;cursor:pointer;font-size:11px;border-bottom:1px solid var(--sp-border);color:var(--sp-text);">
-                     <strong>${p.name}</strong> ${p.upn ? `<span style="color:var(--sp-text-muted);font-size:10px;">(${p.upn})</span>` : ''}
-                   </div>
-                 `).join('');
+            const personRow = (p) => `<div class="smax-person-pick" data-name="${Utils.escapeHtml(p.name)}" style="padding:5px 8px;cursor:pointer;font-size:11px;border-bottom:1px solid var(--sp-border);color:var(--sp-text);"><strong>${Utils.escapeHtml(p.name)}</strong> ${p.upn ? `<span style="color:var(--sp-text-muted);font-size:10px;">(${p.upn})</span>` : ''}</div>`;
+
+            if (matches.length) {
+              resultsEl.innerHTML = matches.map(personRow).join('');
               attachPickHandlers();
+            } else if (q.length >= 3) {
+              resultsEl.innerHTML = '<div style="padding:4px;color:var(--sp-text-muted);font-size:10px;">🔍 Buscando no SMAX...</div>';
+              _remoteTimer = setTimeout(() => {
+                DataRepository.searchPeopleRemote(q).then(remote => {
+                  if ((searchInput.value || '').trim().toUpperCase() !== q) return;
+                  if (!remote.length) {
+                    resultsEl.innerHTML = '<div style="padding:4px;color:var(--sp-text-muted);font-size:10px;">Nenhum resultado no cache nem no SMAX.</div>';
+                  } else {
+                    resultsEl.innerHTML = '<div style="padding:4px;font-size:9px;color:var(--sp-text-dim);border-bottom:1px solid var(--sp-border);">Resultados do SMAX (busca global)</div>' + remote.map(personRow).join('');
+                    resultsEl.style.display = 'block';
+                    attachPickHandlers();
+                  }
+                });
+              }, 500);
+            } else {
+              resultsEl.innerHTML = '<div style="padding:4px;color:var(--sp-text-muted);font-size:10px;">Nenhum resultado. Digite 3+ letras para buscar no SMAX.</div>';
             }
           };
 
@@ -6535,6 +6596,7 @@
       // --- Equipes ---
       if (Array.isArray(data.teams) && data.teams.length) {
         TeamsConfig.setSharedTeams(data.teams);
+        DataRepository.ensurePeopleLoaded({ force: true });
         _listeners.forEach(fn => { try { fn(data.teams); } catch {} });
         log.push({ key: 'Equipes', detail: `${data.teams.length} equipe(s): ${data.teams.map(t => t.name || t.id).join(', ')}`, ok: true });
       } else if (data.teams !== undefined) {
