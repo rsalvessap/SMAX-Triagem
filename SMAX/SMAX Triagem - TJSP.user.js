@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SMAX Triagem - TJSP
 // @namespace    https://github.com/rsalvessap/SMAX-Triagem
-// @version      1.1
+// @version      1.2
 // @description  Módulo de triagem para o SMAX TJSP
 // @author       rsalvessap
 // @match        https://suporte.tjsp.jus.br/saw/*
@@ -33,7 +33,7 @@
   const SMAX_SB_URL = 'https://rlcbmrjkojopipiwpktf.supabase.co';
   const SMAX_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsY2Jtcmprb2pvcGlwaXdwa3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3MzI0MTksImV4cCI6MjA5NDMwODQxOX0.Ha4xRbFvbgb2yO64ga3dV8KrNGRgbV7zWFXc5bYHdeQ';
 
-  const SMAX_TOOLKIT_VERSION = '1.1';
+  const SMAX_TOOLKIT_VERSION = '1.2';
   const SMAX_TENANT_ID = '213963628';
   console.log('%c[SMAX Triagem] v' + SMAX_TOOLKIT_VERSION + ' carregado', 'color:#10b981;font-weight:bold;font-size:13px;');
 
@@ -2751,9 +2751,57 @@
       return 'PrivacyTypeInternal';
     };
 
+    // Comprime imagens base64 grandes dentro de HTML via Canvas.
+    // Evita payloads enormes que o SMAX trunca silenciosamente cortando o texto.
+    const compressBase64InHtml = async (html) => {
+      if (!html) return html;
+      const IMG_CHAR_THRESHOLD = 50000; // só comprime base64 > 50k chars (~37KB)
+      const MAX_DIM = 1200;
+      const QUALITY = 0.70;
+      const b64Regex = /data:image\/[^;]+;base64,[A-Za-z0-9+\/=]{100,}/g;
+      const matches = html.match(b64Regex);
+      if (!matches || !matches.length) return html;
+      const large = matches.filter(m => m.length > IMG_CHAR_THRESHOLD);
+      if (!large.length) return html;
+      console.info('[SMAX] compressBase64InHtml: comprimindo', large.length, 'imagem(ns) grande(s)');
+      const compressOne = (dataUrl) => new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            let { width, height } = img;
+            if (width > MAX_DIM || height > MAX_DIM) {
+              const scale = Math.min(MAX_DIM / width, MAX_DIM / height);
+              width = Math.round(width * scale);
+              height = Math.round(height * scale);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', QUALITY));
+          } catch (_) { resolve(dataUrl); }
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      });
+      let result = html;
+      for (const src of large) {
+        const compressed = await compressOne(src);
+        if (compressed.length < src.length) {
+          result = result.replace(src, compressed);
+          console.info('[SMAX] compressBase64InHtml:', src.length, '→', compressed.length, 'chars');
+        }
+      }
+      return result;
+    };
+
     const postDiscussion = async (ticketId, { bodyHtml, purposeCode, privacyRaw, commentTo } = {}) => {
       if (!prefs.enableRealWrites) return { skipped: true };
       if (!ticketId || !bodyHtml) return null;
+
+      // Comprimir imagens base64 grandes no novo comentário via Canvas
+      bodyHtml = await compressBase64InHtml(bodyHtml);
 
       // Buscar dados frescos do servidor: LastUpdateTime + comentários existentes
       let lastUpdateTime = 0;
@@ -2808,16 +2856,24 @@
       // Se o payload exceder o limite seguro, reduzir tamanho substituindo base64 de imagens
       // de comentários antigos por um pixel transparente (o SMAX trunca campos Comments muito grandes).
       const COMMENTS_SAFE_LIMIT = 60000;
+      const TINY_PX = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+      const b64ImgRe = /data:image\/[^;]+;base64,[A-Za-z0-9+\/=]{100,}/g;
       if (commentsJson.length > COMMENTS_SAFE_LIMIT) {
         console.warn('[SMAX] postDiscussion: payload grande (' + commentsJson.length + ' chars), compactando imagens de comentários antigos.');
-        const TINY_PX = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
         const slimExisting = existingComments.map(c => {
           const body = c.CommentBody || '';
           if (body.length < 500) return c;
-          return { ...c, CommentBody: body.replace(/data:image\/[^;]+;base64,[A-Za-z0-9+\/=]{100,}/g, TINY_PX) };
+          return { ...c, CommentBody: body.replace(b64ImgRe, TINY_PX) };
         });
         commentsJson = JSON.stringify({ Comment: [...slimExisting, newComment] });
-        console.info('[SMAX] postDiscussion: payload compactado →', commentsJson.length, 'chars');
+        console.info('[SMAX] postDiscussion: payload compactado (antigos) →', commentsJson.length, 'chars');
+        // Se AINDA estiver grande, compactar também as imagens do novo comentário
+        if (commentsJson.length > COMMENTS_SAFE_LIMIT) {
+          console.warn('[SMAX] postDiscussion: payload ainda grande, compactando imagens do novo comentário.');
+          const slimNew = { ...newComment, CommentBody: newComment.CommentBody.replace(b64ImgRe, TINY_PX) };
+          commentsJson = JSON.stringify({ Comment: [...slimExisting, slimNew] });
+          console.info('[SMAX] postDiscussion: payload final →', commentsJson.length, 'chars');
+        }
       }
       const discProps = { Id: String(ticketId), Comments: commentsJson };
       if (lastUpdateTime) discProps.LastUpdateTime = lastUpdateTime;
