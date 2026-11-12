@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SMAX Triagem ADM - TJSP
 // @namespace    https://github.com/rsalvessap/SMAX-Triagem
-// @version      1.4
+// @version      1.5
 // @description  [ADM] Módulo de triagem para o SMAX TJSP — versão de desenvolvimento
 // @author       rsalvessap
 // @match        https://suporte.tjsp.jus.br/saw/*
@@ -34,7 +34,7 @@
   const SMAX_SB_URL = 'https://rlcbmrjkojopipiwpktf.supabase.co';
   const SMAX_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsY2Jtcmprb2pvcGlwaXdwa3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3MzI0MTksImV4cCI6MjA5NDMwODQxOX0.Ha4xRbFvbgb2yO64ga3dV8KrNGRgbV7zWFXc5bYHdeQ';
 
-  const SMAX_TOOLKIT_VERSION = '1.4';
+  const SMAX_TOOLKIT_VERSION = '1.5';
   const SMAX_TENANT_ID = '213963628';
   console.log('%c[SMAX Triagem ADM] v' + SMAX_TOOLKIT_VERSION + ' carregado', 'color:#f59e0b;font-weight:bold;font-size:13px;');
 
@@ -4178,15 +4178,19 @@
         method: 'GET', url: `${apiUrl}?ref=${branch}`, headers,
         onload: (res) => {
           let sha = '';
+          let remote = null;
           try {
             if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
-            sha = JSON.parse(res.responseText).sha;
+            const meta = JSON.parse(res.responseText);
+            sha = meta.sha;
+            // Conteúdo atual direto da API (sem o cache de ~5 min do raw.githubusercontent.com)
+            try { remote = JSON.parse(decodeURIComponent(escape(atob((meta.content || '').replace(/\s/g, ''))))); } catch {}
           } catch (e) {
             return onStatus(`Erro ao buscar arquivo: ${e.message}`, false);
           }
 
           // Monta novo conteúdo — inclui todas as configurações compartilhadas
-          const existing = SharedConfig.get() || {};
+          const existing = remote || SharedConfig.get() || {};
           let teams = [];
           try { teams = JSON.parse(prefs.teamsConfigRaw); } catch {}
           let teamSigs = {};
@@ -4225,7 +4229,8 @@
             onload: (r) => {
               if (r.status === 200 || r.status === 201) {
                 onStatus(`✓ Publicado! v${newData._version} — todos receberão na próxima sincronização.`, true);
-                SharedConfig.refresh(true);
+                // Aplica o que acabou de ser publicado; não relê o raw (CDN pode devolver a versão antiga)
+                SharedConfig.setData(newData);
               } else {
                 let detail = '';
                 try { detail = JSON.parse(r.responseText).message || ''; } catch {}
@@ -6742,6 +6747,13 @@
             try {
               if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
               const parsed = JSON.parse(res.responseText);
+              // raw.githubusercontent.com tem cache de ~5 min: ignora versão mais antiga que a já conhecida
+              if (data && (Number(parsed._version) || 0) < (Number(data._version) || 0)) {
+                statusText = `✓ v${data._version} (servidor ainda com cópia antiga v${parsed._version || '?'})`;
+                console.log('[SMAX SharedConfig] ignorando versão antiga do CDN:', parsed._version, '<', data._version);
+                resolve(data);
+                return;
+              }
               data = parsed;
               fetchedAt = Date.now();
               saveCache(data);
@@ -6783,7 +6795,16 @@
     const getStatus = () => ({ text: statusText, loading: isLoading, fetchedAt });
     const get = () => data;
 
-    return { init, refresh, get, getStatus, onTeamsLoaded };
+    const setData = (d) => {
+      if (!d || typeof d !== 'object') return;
+      data = d;
+      fetchedAt = Date.now();
+      saveCache(data);
+      statusText = `✓ v${data._version || '1'} — publicado agora`;
+      applyToModules();
+    };
+
+    return { init, refresh, get, setData, getStatus, onTeamsLoaded };
   })();
 
   /* =========================================================
